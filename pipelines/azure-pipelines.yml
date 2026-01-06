@@ -33,8 +33,7 @@ stages:
   jobs:
   - job: ValidateRG
     displayName: 'Validate subscription deployment (create-rg)'
-    pool:
-      vmImage: 'ubuntu-latest'
+    pool: rej-self-hosted
     steps:
     - checkout: self
     - task: AzureCLI@2
@@ -56,8 +55,7 @@ stages:
   - job: CreateRG
     displayName: 'Create resource group via subscription deployment'
     dependsOn: ValidateRG
-    pool:
-      vmImage: 'ubuntu-latest'
+    pool: rej-self-hosted
     steps:
     - checkout: self
     - task: AzureCLI@2
@@ -82,8 +80,7 @@ stages:
   jobs:
   - job: ValidateTemplate
     displayName: 'Validate template with Azure CLI'
-    pool:
-      vmImage: 'ubuntu-latest'
+    pool: rej-self-hosted
     steps:
     - checkout: self
     - task: AzureCLI@2
@@ -108,8 +105,7 @@ stages:
   jobs:
   - deployment: DeployInfra
     environment: 'azure'
-    pool:
-      vmImage: 'ubuntu-latest'
+    pool: rej-self-hosted
     strategy:
       runOnce:
         deploy:
