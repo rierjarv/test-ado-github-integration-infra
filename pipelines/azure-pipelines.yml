@@ -1,0 +1,138 @@
+# Azure DevOps pipeline template for deploying via Azure CLI
+# - Store this file in your GitHub repo and connect the repo to Azure DevOps
+# - Configure an Azure Resource Manager service connection in Azure DevOps
+# - Update `azureServiceConnection`, `resourceGroup`, and file paths below
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  - name: azureServiceConnection
+    value: 'My-Azure-Service-Connection'
+  - name: resourceGroup
+    value: 'my-resource-group'
+  - name: location
+    value: 'eastus'
+  - name: templatePath
+    value: 'iac/main.bicep'
+  - name: parametersPath
+    value: 'iac/params.bicepparam'
+  - name: createRgTemplatePath
+    value: 'iac/create-rg.bicep'
+  - name: createRgParametersPath
+    value: 'iac/create-rg.bicepparam'
+
+stages:
+
+- stage: CreateResourceGroup
+  displayName: 'Create resource group (subscription deployment)'
+  jobs:
+  - job: ValidateRG
+    displayName: 'Validate subscription deployment (create-rg)'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - task: AzureCLI@2
+      displayName: 'Validate subscription-level Bicep'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -euo pipefail
+          echo "Validating subscription template: iac/create-rg.bicep"
+          az --version
+          az deployment sub validate \
+            --location $(location) \
+            --template-file "$(System.DefaultWorkingDirectory)/$(createRgTemplatePath)" \
+            --parameters @"$(System.DefaultWorkingDirectory)/$(createRgParametersPath)" \
+            --parameters rgName=$(resourceGroup) location=$(location)
+
+  - job: CreateRG
+    displayName: 'Create resource group via subscription deployment'
+    dependsOn: ValidateRG
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - task: AzureCLI@2
+      displayName: 'Create RG using subscription-level Bicep'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -euo pipefail
+          echo "Creating resource group: $(resourceGroup) in $(location)"
+          az --version
+          az deployment sub create \
+            --location $(location) \
+            --template-file "$(System.DefaultWorkingDirectory)/$(createRgTemplatePath)" \
+            --parameters @"$(System.DefaultWorkingDirectory)/$(createRgParametersPath)" \
+            --parameters rgName=$(resourceGroup) location=$(location)
+
+- stage: Validate
+  displayName: 'Validate template'
+  dependsOn: CreateResourceGroup
+  jobs:
+  - job: ValidateTemplate
+    displayName: 'Validate template with Azure CLI'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - task: AzureCLI@2
+      displayName: 'Validate Bicep/ARM template'
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -euo pipefail
+          echo "Validating template: $(templatePath)"
+          az --version
+          az deployment group validate \
+            --resource-group $(resourceGroup) \
+            --template-file "$(System.DefaultWorkingDirectory)/$(templatePath)" \
+            --parameters @"$(System.DefaultWorkingDirectory)/$(parametersPath)"
+
+- stage: Deploy
+  displayName: 'Deploy to Azure'
+  dependsOn: Validate
+  jobs:
+  - deployment: DeployInfra
+    environment: 'azure'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - task: AzureCLI@2
+            displayName: 'Login and deploy with Azure CLI'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                set -euo pipefail
+                echo "Deploying template: $(templatePath) to RG: $(resourceGroup)"
+                az deployment group create \
+                  --resource-group $(resourceGroup) \
+                  --template-file "$(System.DefaultWorkingDirectory)/$(templatePath)" \
+                  --parameters @"$(System.DefaultWorkingDirectory)/$(parametersPath)"
+
+# Notes:
+# - Replace `My-Azure-Service-Connection` with the name of your Azure RM service connection
+#   created in the Azure DevOps project that has access to the target subscription.
+# - `templatePath` may point to a Bicep (`.bicep`) or ARM template (`.json`).
+# - Ensure `parametersPath` exists in the repo (e.g., `iac/params.json`).
