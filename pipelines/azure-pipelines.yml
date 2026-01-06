@@ -99,7 +99,8 @@ stages:
           az deployment group validate \
             --resource-group $(rgName) \
             --template-file "$(System.DefaultWorkingDirectory)/$(templatePath)" \
-            --parameters @"$(System.DefaultWorkingDirectory)/$(parametersPath)"
+            --parameters @"$(System.DefaultWorkingDirectory)/$(parametersPath)" \
+            --parameters location=$(location)
 
 - stage: Deploy
   displayName: 'Deploy to Azure'
@@ -122,9 +123,12 @@ stages:
               scriptLocation: 'inlineScript'
               inlineScript: |
                 set -euo pipefail
-          echo "Deploying template: $(templatePath) to RG: $(rgName)"
-          az deployment group create \
-            --resource-group $(rgName) \
+                echo "Deploying template: $(templatePath) to RG: $(rgName)"
+                az deployment group create \
+                  --resource-group $(rgName) \
+                  --template-file "$(System.DefaultWorkingDirectory)/$(templatePath)" \
+                  --parameters @"$(System.DefaultWorkingDirectory)/$(parametersPath)" \
+                  --parameters location=$(location)
 
 # Notes:
 # - Replace `My-Azure-Service-Connection` with the name of your Azure RM service connection
