@@ -18,14 +18,14 @@ This repository contains Infrastructure as Code (IaC) templates and an Azure Dev
 
 3. **Update Pipeline Variables**:
    - In the pipeline YAML (`pipelines/azure-pipelines.yml`), update the following variables:
-     - `azureServiceConnection`: Set to the name of your Azure service connection (e.g., `My-Azure-Service-Connection`).
-     - `resourceGroup`: Set to the desired resource group name (e.g., `my-resource-group`).
-     - `location`: Set to the Azure region (e.g., `eastus`).
+     - `azureServiceConnection`: Set to the name of your Azure service connection (e.g., `spn-subscription1-contributor`).
+     - `rgName`: Set to the desired resource group name (e.g., `rej-resource-group`).
+     - `location`: Set to the Azure region (e.g., `westeurope`).
      - `templatePath`: Path to your main Bicep/ARM template (default: `iac/main.bicep`).
      - `parametersPath`: Path to your parameters file (default: `iac/params.bicepparam`).
 
 4. **Run the Pipeline**:
-   - Trigger the pipeline manually or via push/PR to the `main` branch.
+   - Trigger the pipeline manually.
    - The pipeline will:
      - Validate the subscription-level deployment (resource group creation).
      - Create the resource group.
